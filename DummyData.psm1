@@ -1,111 +1,151 @@
 function New-DummyData {
     param (
-        [int]$TotalFiles,
-        [int]$WordsPerFile,
-        [string]$OutputFolder,
-        [int]$NestingLevel,
-        [int]$FoldersPerLevel
+        [int]$NumFiles = 1,
+        [int]$WordsPerFile = 1000,
+        [string]$OutputFolder = "./out",
+        [int]$NumFolders = 1,
+        [int]$ThreadsPerApp = 1,
+        [string[]]$DICTIONARY,
+        [hashtable]$FileTypeRatio = @{
+            txt=.25;
+            docx=.25;
+            pptx=.25;
+            xlsx=.25
+        }
+    )
+     
+    # make sure we have a dictionary
+    if (! $PSBoundParameters.ContainsKey('DICTIONARY')) {
+        $DICT_URL = "https://github.com/dolph/dictionary/raw/master/popular.txt"
+        $DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`n"
+    }
+
+    # make folders
+    $Folders = New-FolderSet -OutputFolder $OutputFolder -NumFolders $NumFolders -Dictionary $DICTIONARY
+
+    # get filetype counts
+
+    
+
+
+
+    $FileTypeCounts = @{}
+    foreach ($type in "docx","pptx","xlsx") {
+        $TotalCount = [int][Math]::Floor($FileTypeRatio[$type] * $NumFiles)
+        $FileTypeCounts.Add($type, (Get-NumSplit -Total $TotalCount -SplitCount $ThreadsPerApp))
+    }
+    $Remainder = $NumFiles - ($FileTypeCounts.Values | Measure-Object -Sum).Sum
+    $FileTypeCounts.Add(
+        "txt", 
+        (Get-NumSplit -Total $Remainder -SplitCount $ThreadsPerApp)
     )
     
-    # TODO: change folder generation from ridgid and structure to random 
-        # create list of folders, randomly select one to 
-    #
+    # TODO
+    # Populate folders
+    foreach ($type in $FileTypeCounts.Keys) {
+        for ($i=0; $i -lt $ThreadsPerApp; $i++) {
+            if ($type -eq "docx") {
+                Start-ThreadJob -ScriptBlock {
+                    New-DocxFiles -Count ($FileTypeCounts[$type])
+                }
+            } elseif ($type -eq "pptx") {
 
-    <# Validate file type ratio
-    $totalRatio = $FileTypeRatio.Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-    if ($totalRatio -ne 100) {
-        Throw "File type ratio must sum to 100"
+            } elseif ($type -eq "xlsx") {
+
+            } elseif ($type -eq "txt") {
+
+            } else {
+                Throw "Unrecognized filetype. No file creator defined."
+            }
+            
+        }
     }
-    #>
+}
 
+function New-FolderSet {
+    param (
+        [string]$OutputFolder,
+        [int]$NumFolders,
+        [string[]]$Dictionary
+    )
     # ensure output folder exists
     if (-not (Test-Path -Path $OutputFolder)) {
         New-Item -Path $OutputFolder -ItemType Directory
     }
+    # make sure we have the full path
     $OutputFolder = Resolve-Path $OutputFolder | Select-Object -ExpandProperty Path
-
-    <# Calculate the number of files for each type
-    $fileCounts = @{}
-    foreach ($fileType in $FileTypeRatio.Keys) {
-        $count = [math]::Round($TotalFiles * ($FileTypeRatio[$fileType]/100))
-        $fileCounts[$fileType] = $count
+    $folders = New-Object string[] $NumFolders
+    $folders[0] = $OutputFolder
+    $generator = New-Object Randomizer
+    $names = $generator.select($Dictionary, $NumFolders)
+    for ( $i=1; $i -lt $NumFolders; $i++ ) {
+        $folders[$i] = Join-Path -Path $folders[$generator.num($i)] `
+            -ChildPath $names[$i]
+        try {
+            [void](New-Item -ItemType Directory -Path $folders[$i])
+        }
+        catch {
+            # if, by chance, we try to create something that already exists, retry
+            $i--
+        }
     }
-    #>
-
-    # Calculate the number of files per folder
-    $TotalFolders = ([Math]::Pow($FoldersPerLevel,$NestingLevel+1) - 1)/($FoldersPerLevel - 1)
-    $FilesPerFolder = [int][Math]::Floor($TotalFiles/$TotalFolders)
-    $FilesPerTopFolder = $FilesPerFolder + ($TotalFiles % $TotalFolders)
-
-    # Create the folder structure
-    $Folders = Set-ChildFolders -ParentDir $OutputFolder -NumFolders $FoldersPerLevel `
-        -MaxLevel $NestingLevel
-
-    # Populate folders
-    Set-FolderFiles -Folder $OutputFolder -NumFiles $FilesPerTopFolder -WordsPerFile $WordsPerFile
-    foreach ($dir in $Folders) {
-        Set-FolderFiles -Folder $dir -NumFiles $FilesPerFolder -WordsPerFile $WordsPerFile
-    }
-        
+    return $folders
 }
 
-function Write-Green {
-    process { Write-Host $_ -ForegroundColor Green }
-}
-
-function Get-MyRandom {
-    param (
-        [Object[]]$InputObject,
-        [int]$Count = 1,
-        [int]$Maximum
-    )
-    $random = New-Object System.Random
-    if (! $PSBoundParameters.ContainsKey('InputObject')) {
-        if (! $PSBoundParameters.ContainsKey('Maximum')) {
-            Throw "Either InputObject or Maximum must be provided"
-        }
-        $out = for ($i=0; $i -lt $Count; $i++) {
-            $random.Next(0, $Maximum)
-        }
-    } else {
+class Randomizer {
+    [System.Random]$generator
+    Randomizer () {
+        $this.generator = New-Object System.Random
+    }
+    [Object[]] select ([Object[]]$InputObject, [int]$Count) {
         $n = $InputObject.Length - 1
         $out = for ($i=0; $i -lt $Count; $i++) { 
-            $InputObject[($random.Next(0, $n))]
+            $InputObject[($this.generator.Next(0, $n))]
         }
+        return $out
     }
-    return $out
+    [Object] select ([Object[]]$InputObject) {
+        $n = $InputObject.Length - 1
+        return $InputObject[($this.generator.Next(0, $n))]
+    }
+    [int[]] num ([int]$Maximum, [int]$Count) {
+        $out = for ($i=0; $i -lt $Count; $i++) {
+            $this.generator.Next(0, $Maximum)
+        }
+        return $out
+    }
+    [int] num ([int]$Maximum) {
+        return $this.generator.Next(0, $Maximum)
+    }
 }
 
-function Set-ChildFolders {
+function Get-NumSplit {
     param (
-        [string]$ParentDir,
-        [int]$NumFolders,
-        [int]$CurrentLevel,
-        [int]$MaxLevel
+        [int]$Total,
+        [int]$SplitCount
     )
-
-    $Folders = @()
-    for ($i=0; $i -lt $NumFolders; $i++) {
-        $FolderName = (Get-RandomWords -NumWords 2) -join '_'
-        $FolderPath = Join-Path -Path $ParentDir -ChildPath $FolderName
-        New-Item -ItemType Directory -Path $FolderPath
-        $Folders += $FolderPath
+    $counts = New-Object int[] $SplitCount
+    for ($i=0; $i -lt ($SplitCount - 1); $i++) {
+        $counts[$i] = [int][Math]::Round($Total/$SplitCount)
     }
-
-    if ( ! $PSBoundParameters.ContainsKey('CurrentLevel') ) {
-        $CurrentLevel = 1
-    }
-
-    if ( $CurrentLevel -lt $MaxLevel ) {
-        foreach ($ChildFolder in $Folders) {
-            $Descendants = Set-ChildFolders -ParentDir $ChildFolder -NumFolders $NumFolders `
-                -CurrentLevel ($CurrentLevel + 1) -MaxLevel $MaxLevel
-            $Folders += $Descendants
-        }
-    }
-
-    return $Folders
+    $counts[$SplitCount-1] = $Total - ($counts | Measure-Object -Sum).Sum
+    return $counts
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function Set-FolderFiles {
     param (
@@ -191,7 +231,7 @@ function New-PowerPointPresentation {
         # Close PowerPoint
         $presentation.Close()
 
-        # Write-Host "PowerPoint presentation created: $OutputPath"
+        # Write-Output "PowerPoint presentation created: $OutputPath"
     }
     catch {
         Write-Error "Error creating PowerPoint presentation: $_"
@@ -222,7 +262,7 @@ function New-WordDocument {
         # Close Word
         $document.Close()
 
-        # Write-Host "Word document created: $OutputPath"
+        # Write-Output "Word document created: $OutputPath"
     }
     catch {
         Write-Error "Error creating Word document: $_"
@@ -271,7 +311,7 @@ function New-ExcelDocument {
         # Close Excel
         $workbook.Close()
 
-        # Write-Host "Excel document created: $OutputPath"
+        # Write-Output "Excel document created: $OutputPath"
     }
     catch {
         Write-Error "Error creating Excel document: $_"
@@ -284,7 +324,6 @@ $DICT_URL = "https://github.com/dolph/dictionary/raw/master/popular.txt"
 $DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`r`n"
 #>
 $DICTIONARY = Get-Content "./dictionary.txt"
-$DICT_SIZE = $DICTIONARY | Measure-Object | Select-Object -ExpandProperty Count
 
 $FILE_TYPES = @(".xlsx", ".pptx", ".docx", ".txt")
 
