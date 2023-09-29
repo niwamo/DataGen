@@ -24,11 +24,6 @@ function New-DummyData {
     $Folders = New-FolderSet -OutputFolder $OutputFolder -NumFolders $NumFolders -Dictionary $DICTIONARY
 
     # get filetype counts
-
-    
-
-
-
     $FileTypeCounts = @{}
     foreach ($type in "docx","pptx","xlsx") {
         $TotalCount = [int][Math]::Floor($FileTypeRatio[$type] * $NumFiles)
@@ -40,24 +35,22 @@ function New-DummyData {
         (Get-NumSplit -Total $Remainder -SplitCount $ThreadsPerApp)
     )
     
-    # TODO
     # Populate folders
     foreach ($type in $FileTypeCounts.Keys) {
-        for ($i=0; $i -lt $ThreadsPerApp; $i++) {
-            if ($type -eq "docx") {
-                Start-ThreadJob -ScriptBlock {
-                    New-DocxFiles -Count ($FileTypeCounts[$type])
+        foreach ($filecount in $FileTypeCounts[$type]) {
+            Start-ThreadJob -ScriptBlock {
+                if ($type -eq "docx") {
+                    New-DocxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
+                } elseif ($type -eq "pptx") {
+                    New-PptxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
+                } elseif ($type -eq "xlsx") {
+                    New-XlsxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
+                } elseif ($type -eq "txt") {
+                    New-TxtFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
+                } else {
+                    Throw "Unrecognized filetype. No file creator defined."
                 }
-            } elseif ($type -eq "pptx") {
-
-            } elseif ($type -eq "xlsx") {
-
-            } elseif ($type -eq "txt") {
-
-            } else {
-                Throw "Unrecognized filetype. No file creator defined."
             }
-            
         }
     }
 }
@@ -132,207 +125,183 @@ function Get-NumSplit {
     return $counts
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function Set-FolderFiles {
+function New-PptxFiles {
     param (
-        [string]$Folder,
-        [int]$NumFiles,
-        [int]$WordsPerFile
+        [int]$Count,
+        [int]$WordCount,
+        [string[]]$Folders,
+        [string[]]$Dictionary
     )
-
-    # Write-Output "Adding $NumFiles to $Folder"
-
-    for ($i = 0; $i -lt $NumFiles; $i++) {
-        $extension = Get-Random -InputObject $FILE_TYPES
-        $fileName = ((Get-RandomWords -NumWords 3) -join '-') + $extension
-        $filePath = Join-Path -Path $Folder -ChildPath $fileName
-
-        New-Document -Path $filePath -Type $extension -NumWords $WordsPerFile
-        <# Optionally, zip files based on the ZipProportion
-        if ((Get-Random -Minimum 0 -Maximum 100) -lt $ZipProportion) {
-            Compress-Archive -Path $filePath -DestinationPath "$filePath.zip" -Force
-            Remove-Item -Path $filePath -Force
-        }
-        #>
-    }
-}
-
-function New-Document {
-    param (
-        [string]$Path,
-        [string]$Type,
-        [int]$NumWords
-    )
-
-    if ($Type -eq ".pptx") {
-        New-PowerPointPresentation -OutputPath $Path -Title (Get-RandomWords -NumWords 1) `
-            -SlideTitles (Get-RandomWords -NumWords 5) `
-            -SlideContents @(
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)) 
-            )
-    } elseif ($Type -eq ".docx") {
-        New-WordDocument -OutputPath $Path -Title (Get-RandomWords -NumWords 1) `
-            -Content ((Get-RandomWords -NumWords $NumWords) -join ' ')
-    } elseif ($Type -eq ".xlsx") {
-        New-ExcelDocument -OutputPath $Path -SheetName (Get-RandomWords -NumWords 1) `
-            -Headers (Get-RandomWords -NumWords 5) `
-            -Data @(
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)), 
-                (Get-RandomWords -NumWords ($NumWords/5)) 
-            )
-    } else {
-        Set-Content -Path $Path -Value ((Get-RandomWords -NumWords $NumWords) -join ' ')
-    }
-}
-
-function New-PowerPointPresentation {
-    param (
-        [string]$OutputPath,
-        [string]$Title,
-        [string[]]$SlideTitles,
-        [string[]]$SlideContents
-    )
-
-    try {
-        # Create a new presentation
-        $presentation = $POWERPOINT.Presentations.Add()
-
-        # Add slides to the presentation
-        for ($i = 0; $i -lt $SlideTitles.Count; $i++) {
-            $slide = $presentation.Slides.Add($i + 1, 1)
-            $content = $slide.Shapes.AddTextbox([Microsoft.Office.Core.MsoTextOrientation]::msoTextOrientationHorizontal, 50, 100, 600, 300)
-            $content.TextFrame.TextRange.Text = $SlideContents[$i]
-        }
-
-        # Save the presentation
-        $presentation.SaveAs($OutputPath)
-
-        # Close PowerPoint
-        $presentation.Close()
-
-        # Write-Output "PowerPoint presentation created: $OutputPath"
-    }
-    catch {
-        Write-Error "Error creating PowerPoint presentation: $_"
-    }
-}
-
-function New-WordDocument {
-    param (
-        [string]$OutputPath,
-        [string]$Title,
-        [string]$Content
-    )
-
-    try {
-        # Add a new document
-        $document = $WORD.Documents.Add()
-
-        # Add a title to the document
-        $document.Content.Text = $Title
-
-        # Add content to the document
-        $document.Content.InsertParagraphAfter()
-        $document.Content.Text = $Content
-
-        # Save the Word document
-        $document.SaveAs($OutputPath)
-
-        # Close Word
-        $document.Close()
-
-        # Write-Output "Word document created: $OutputPath"
-    }
-    catch {
-        Write-Error "Error creating Word document: $_"
-    }
-}
-
-function New-ExcelDocument {
-    param (
-        [string]$OutputPath,
-        [string]$SheetName,
-        [string[]]$Headers,
-        [object[][]]$Data
-    )
-    try {
         
-        # Add a new workbook
-        $workbook = $EXCEL.Workbooks.Add()
-
-        # Select the first sheet
-        $sheet = $workbook.Worksheets.Item(1)
-        $sheet.Name = $SheetName
-
-        # Add headers to the sheet
-        $row = 1
-        $col = 1
-        foreach ($header in $Headers) {
-            $sheet.Cells.Item($row, $col) = $header
-            $col++
+    & { 
+        $POWERPOINT = New-Object -ComObject PowerPoint.Application
+        $Generator = New-Object Randomizer
+        
+        $Extension = ".pptx"
+        $Words = $Generator.select($Dictionary, $Count*2)
+        $Dirs = $Generator.select($Folders, $Count)
+        $OutputPaths = for ($i=0; $i -lt $Count; $i++) {
+            $start = 2*$i
+            $name = ($Words[$start..($start+1)] -join '-') + $Extension
+            Join-Path -Path $Dirs[$i] -ChildPath $name
         }
+        
+        foreach ($OutPath in $OutputPaths) {
+            # Create a new presentation
+            $presentation = $POWERPOINT.Presentations.Add()
 
-        # Add data to the sheet
-        $row++
-        $col = 1
-        foreach ($rowData in $Data) {
-            $row = 2
-            foreach ($cellData in $rowData) {
-                $sheet.Cells.Item($row, $col) = $cellData
-                $row++
+            # Add slides to the presentation
+            $Words = $Generator.select($Dictionary, $WordCount)
+            $SlideCount = [Math]::Max([int][Math]::Floor($WordCount / 500), 1)
+            for ($i = 0; $i -lt $SlideCount; $i++) {
+                $slide = $presentation.Slides.Add($i + 1, 1)
+                $content = $slide.Shapes.AddTextbox([Microsoft.Office.Core.MsoTextOrientation]::msoTextOrientationHorizontal, 50, 100, 600, 300)
+                $start = $i * 500
+                $end = [Math]::Min($start + 499, $WordCount)
+                $content.TextFrame.TextRange.Text = $Words[$start..$end] -join ' '
             }
-            $col++
+            :jail for ($attempts=0; $attempts -lt 10; $attempts++) {
+                try {
+                    # Save the presentation
+                    $presentation.SaveAs([string]$OutPath)
+
+                    # Close PowerPoint
+                    $presentation.Close()
+
+                    # Write-Output "PowerPoint presentation created: $OutputPath"
+                    break jail
+                }
+                catch {
+                    Write-Error "Error creating PowerPoint presentation: $_"
+                    $name = ($Generator.select($Dictionary, 2) -join '-') + $Extension
+                    $OutPath = Join-Path -Path $Generator.select($Folders) -ChildPath $name
+                }
+            }
         }
 
-        # Save the Excel workbook
-        $workbook.SaveAs($OutputPath)
-
-        # Close Excel
-        $workbook.Close()
-
-        # Write-Output "Excel document created: $OutputPath"
+        $POWERPOINT.Quit()
     }
-    catch {
-        Write-Error "Error creating Excel document: $_"
-    }
+    [GC]::Collect()
 }
 
+function New-DocxFiles {
+    param (
+        [int]$Count,
+        [int]$WordCount,
+        [string[]]$Folders,
+        [string[]]$Dictionary
+    )
+        
+    & { 
+        $WORD = New-Object -ComObject Word.Application
+        $Generator = New-Object Randomizer
+        
+        $Extension = ".docx"
+        $Words = $Generator.select($Dictionary, $Count*2)
+        $Dirs = $Generator.select($Folders, $Count)
+        $OutputPaths = for ($i=0; $i -lt $Count; $i++) {
+            $start = 2*$i
+            $name = ($Words[$start..($start+1)] -join '-') + $Extension
+            Join-Path -Path $Dirs[$i] -ChildPath $name
+        }
+        
+        foreach ($OutPath in $OutputPaths) {
+            # Create a new file
+            $document = $WORD.Documents.Add()
 
-<#
-$DICT_URL = "https://github.com/dolph/dictionary/raw/master/popular.txt"
-$DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`r`n"
-#>
-$DICTIONARY = Get-Content "./dictionary.txt"
+            $words = $Generator.select($Dictionary, $WordCount+1)
 
-$FILE_TYPES = @(".xlsx", ".pptx", ".docx", ".txt")
+            # Add a title to the document
+            $document.Content.Text = $words[0]
 
-$POWERPOINT = New-Object -ComObject PowerPoint.Application
-$WORD = New-Object -ComObject Word.Application
-$EXCEL = New-Object -ComObject Excel.Application
+            # Add content to the document
+            $document.Content.InsertParagraphAfter()
+            $document.Content.Text = $words[1..$WordCount] -join ' '
 
-New-DataRepo -TotalFiles 250000 -WordsPerFile 10000 -OutputFolder "./data-repo" -NestingLevel 5 -FoldersPerLevel 5
+            :jail for ($attempts=0; $attempts -lt 10; $attempts++) {
+                try {
+                    # Save the file
+                    $document.SaveAs([string]$OutPath)
+                    # Close the file
+                    $document.Close()
+                    break jail
+                }
+                catch {
+                    Write-Error "Error creating file: $_"
+                    $name = ($Generator.select($Dictionary, 2) -join '-') + $Extension
+                    $OutPath = Join-Path -Path $Generator.select($Folders) -ChildPath $name
+                }
+            }
+        }
+        $WORD.Quit()
+    }
+    [GC]::Collect()
+}
 
-$EXCEL.Quit()
-$WORD.Quit()
-$POWERPOINT.Quit()
+function New-XlsxFiles {
+    param (
+        [int]$Count,
+        [int]$WordCount,
+        [string[]]$Folders,
+        [string[]]$Dictionary
+    )
+        
+    & { 
+        $EXCEL = New-Object -ComObject Excel.Application
+        $Generator = New-Object Randomizer
+        
+        $Extension = ".xlsx"
+        $Words = $Generator.select($Dictionary, $Count*2)
+        $Dirs = $Generator.select($Folders, $Count)
+        $OutputPaths = for ($i=0; $i -lt $Count; $i++) {
+            $start = 2*$i
+            $name = ($Words[$start..($start+1)] -join '-') + $Extension
+            Join-Path -Path $Dirs[$i] -ChildPath $name
+        }
+        
+        foreach ($OutPath in $OutputPaths) {
+            $words = $Generator.select($Dictionary, $WordCount+1)
+
+            # Add a new workbook
+            $workbook = $EXCEL.Workbooks.Add()
+
+            # Select the first sheet
+            $sheet = $workbook.Worksheets.Item(1)
+            $sheet.Name = $words[0]
+
+            $RowCount = [Math]::Max([int][Math]::Floor($WordCount / 500), 1)
+
+            $startCell = $sheet.Cells.Item(1, 1)
+            $endCell = $sheet.Cells.Item(
+                $startCell.Row + ($RowCount - 1),
+                $startCell.Column + [Math]::Min(499, $WordCount)
+            )
+
+            # Assign the data to the range
+            $range = $sheet.Range($startCell, $endCell)
+            $data = @(for ($row=0; $row -lt $RowCount; $row++) {
+                $start = $row * 500
+                $end = $start + [Math]::Min(499, $WordCount)
+                @($words[$start..$end])
+            })
+            $range.Value = $data
+            
+            :jail for ($attempts=0; $attempts -lt 10; $attempts++) {
+                try {
+                    # Save the file
+                    $workbook.SaveAs([string]$OutPath)
+                    # Close the file
+                    $workbook.Close()
+                    break jail
+                }
+                catch {
+                    Write-Error "Error creating file: $_"
+                    $name = ($Generator.select($Dictionary, 2) -join '-') + $Extension
+                    $OutPath = Join-Path -Path $Generator.select($Folders) -ChildPath $name
+                }
+            }
+        }
+        $EXCEL.Quit()
+    }
+    [GC]::Collect()
+}
