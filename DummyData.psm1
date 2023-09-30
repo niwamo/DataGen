@@ -29,30 +29,49 @@ function New-DummyData {
         $TotalCount = [int][Math]::Floor($FileTypeRatio[$type] * $NumFiles)
         $FileTypeCounts.Add($type, (Get-NumSplit -Total $TotalCount -SplitCount $ThreadsPerApp))
     }
-    $Remainder = $NumFiles - ($FileTypeCounts.Values | Measure-Object -Sum).Sum
+    $Remainder = $NumFiles - `
+        ($FileTypeCounts.Values | ForEach-Object { ($_ | Measure-Object -Sum).Sum } | Measure-Object -Sum).Sum
     $FileTypeCounts.Add(
         "txt", 
         (Get-NumSplit -Total $Remainder -SplitCount $ThreadsPerApp)
     )
     
     # Populate folders
+    $Seed = 1
     foreach ($type in $FileTypeCounts.Keys) {
-        foreach ($filecount in $FileTypeCounts[$type]) {
-            Start-ThreadJob -ScriptBlock {
-                if ($type -eq "docx") {
-                    New-DocxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
-                } elseif ($type -eq "pptx") {
-                    New-PptxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
-                } elseif ($type -eq "xlsx") {
-                    New-XlsxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
-                } elseif ($type -eq "txt") {
-                    New-TxtFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY
-                } else {
-                    Throw "Unrecognized filetype. No file creator defined."
+        $jobs = foreach ($filecount in $FileTypeCounts[$type]) {
+            Start-Job -ArgumentList $type, $filecount, $WordsPerFile, $Folders, $Dictionary, $PSCommandPath, $Seed `
+                -ScriptBlock {
+                    param (
+                        [string]$type,
+                        [int]$filecount,
+                        [int]$WordsPerFile,
+                        [string[]]$Folders,
+                        [string[]]$Dictionary,
+                        [string]$ModulePath,
+                        [int]$Seed
+                    )
+                    Import-Module $ModulePath
+                    if ($type -eq "docx") {
+                        New-DocxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY -Seed $Seed
+                    } elseif ($type -eq "pptx") {
+                        New-PptxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY -Seed $Seed
+                    } elseif ($type -eq "xlsx") {
+                        New-XlsxFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY -Seed $Seed
+                    } elseif ($type -eq "txt") {
+                        New-TxtFiles -Count $filecount -WordCount $WordsPerFile -Folders $Folders -Dictionary $DICTIONARY -Seed $Seed
+                    } else {
+                        Throw "Unrecognized filetype. No file creator defined."
+                    }
                 }
-            }
+            $Seed++
         }
     }
+    foreach ($job in $jobs) {
+        $job | Wait-Job
+        $job | Receive-Job
+    }
+    [GC]::Collect()
 }
 
 function New-FolderSet {
@@ -89,6 +108,9 @@ class Randomizer {
     [System.Random]$generator
     Randomizer () {
         $this.generator = New-Object System.Random
+    }
+    Randomizer ([int]$Seed) {
+        $this.generator = New-Object System.Random($Seed)
     }
     [Object[]] select ([Object[]]$InputObject, [int]$Count) {
         $n = $InputObject.Length - 1
@@ -130,12 +152,13 @@ function New-PptxFiles {
         [int]$Count,
         [int]$WordCount,
         [string[]]$Folders,
-        [string[]]$Dictionary
+        [string[]]$Dictionary,
+        [int]$Seed
     )
         
     & { 
         $POWERPOINT = New-Object -ComObject PowerPoint.Application
-        $Generator = New-Object Randomizer
+        $Generator = New-Object Randomizer($Seed)
         
         $Extension = ".pptx"
         $Words = $Generator.select($Dictionary, $Count*2)
@@ -189,12 +212,13 @@ function New-DocxFiles {
         [int]$Count,
         [int]$WordCount,
         [string[]]$Folders,
-        [string[]]$Dictionary
+        [string[]]$Dictionary,
+        [int]$Seed
     )
         
     & { 
         $WORD = New-Object -ComObject Word.Application
-        $Generator = New-Object Randomizer
+        $Generator = New-Object Randomizer($Seed)
         
         $Extension = ".docx"
         $Words = $Generator.select($Dictionary, $Count*2)
@@ -243,12 +267,13 @@ function New-XlsxFiles {
         [int]$Count,
         [int]$WordCount,
         [string[]]$Folders,
-        [string[]]$Dictionary
+        [string[]]$Dictionary,
+        [int]$Seed
     )
         
     & { 
         $EXCEL = New-Object -ComObject Excel.Application
-        $Generator = New-Object Randomizer
+        $Generator = New-Object Randomizer($Seed)
         
         $Extension = ".xlsx"
         $Words = $Generator.select($Dictionary, $Count*2)
@@ -271,21 +296,20 @@ function New-XlsxFiles {
 
             $RowCount = [Math]::Max([int][Math]::Floor($WordCount / 500), 1)
 
-            $startCell = $sheet.Cells.Item(1, 1)
-            $endCell = $sheet.Cells.Item(
-                $startCell.Row + ($RowCount - 1),
-                $startCell.Column + [Math]::Min(499, $WordCount)
-            )
+            for ($row=1; $row -le $RowCount; $row++) {
+                $startCell = $sheet.Cells.Item($row, 1)
+                $endCell = $sheet.Cells.Item(
+                    $row,
+                    [Math]::Min(500, $WordCount)
+                )
 
-            # Assign the data to the range
-            $range = $sheet.Range($startCell, $endCell)
-            $data = @(for ($row=0; $row -lt $RowCount; $row++) {
-                $start = $row * 500
-                $end = $start + [Math]::Min(499, $WordCount)
-                @($words[$start..$end])
-            })
-            $range.Value = $data
-            
+                # Assign the data to the range
+                $range = $sheet.Range($startCell, $endCell)
+                $start = ($row - 1) * 500
+                $end = [Math]::Min($start + 499, $WordCount)
+                $range.Value = @($words[$start..$end])
+            }
+                     
             :jail for ($attempts=0; $attempts -lt 10; $attempts++) {
                 try {
                     # Save the file
@@ -304,4 +328,41 @@ function New-XlsxFiles {
         $EXCEL.Quit()
     }
     [GC]::Collect()
+}
+
+function New-TxtFiles {
+    param (
+        [int]$Count,
+        [int]$WordCount,
+        [string[]]$Folders,
+        [string[]]$Dictionary,
+        [int]$Seed
+    )
+        
+    $Generator = New-Object Randomizer($Seed)
+    
+    $Extension = ".txt"
+    $Words = $Generator.select($Dictionary, $Count*2)
+    $Dirs = $Generator.select($Folders, $Count)
+    $OutputPaths = for ($i=0; $i -lt $Count; $i++) {
+        $start = 2*$i
+        $name = ($Words[$start..($start+1)] -join '-') + $Extension
+        Join-Path -Path $Dirs[$i] -ChildPath $name
+    }
+    
+    foreach ($OutPath in $OutputPaths) {
+        $words = $Generator.select($Dictionary, $WordCount+1)   
+        :jail for ($attempts=0; $attempts -lt 10; $attempts++) {
+            try {
+                # Save the file
+                Set-Content -Path $OutPath -Value ($words -join ' ')
+                break jail
+            }
+            catch {
+                Write-Error "Error creating file: $_"
+                $name = ($Generator.select($Dictionary, 2) -join '-') + $Extension
+                $OutPath = Join-Path -Path $Generator.select($Folders) -ChildPath $name
+            }
+        }
+    }
 }
