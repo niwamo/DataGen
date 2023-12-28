@@ -27,7 +27,9 @@ function New-DummyData {
     $FileTypeCounts = @{}
     foreach ($type in "docx","pptx","xlsx") {
         $TotalCount = [int][Math]::Floor($FileTypeRatio[$type] * $NumFiles)
-        $FileTypeCounts.Add($type, (Get-NumSplit -Total $TotalCount -SplitCount $ThreadsPerApp))
+        if ($TotalCount -gt 0) {
+            $FileTypeCounts.Add($type, (Get-NumSplit -Total $TotalCount -SplitCount $ThreadsPerApp))
+        }
     }
     $Remainder = $NumFiles - `
         ($FileTypeCounts.Values | ForEach-Object { ($_ | Measure-Object -Sum).Sum } | Measure-Object -Sum).Sum
