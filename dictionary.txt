@@ -330,7 +330,6 @@ brand
 bread
 break
 breakfast
-breast
 breath
 breathe
 brick
@@ -551,6 +550,7 @@ conduct
 conference
 confidence
 confident
+confidential
 confirm
 conflict
 confront
@@ -805,7 +805,6 @@ document
 dog
 domestic
 dominant
-dominate
 door
 double
 doubt
@@ -1151,7 +1150,6 @@ garlic
 gas
 gate
 gather
-gay
 gaze
 gear
 gender
@@ -1965,8 +1963,6 @@ plate
 platform
 play
 player
-please
-pleasure
 plenty
 plot
 plus
@@ -2009,7 +2005,6 @@ potential
 potentially
 pound
 pour
-poverty
 powder
 power
 powerful
@@ -2021,8 +2016,6 @@ precisely
 predict
 prefer
 preference
-pregnancy
-pregnant
 preparation
 prepare
 prescription
@@ -2041,7 +2034,6 @@ previous
 previously
 price
 pride
-priest
 primarily
 primary
 prime
@@ -2053,7 +2045,6 @@ priority
 prison
 prisoner
 privacy
-private
 probably
 problem
 procedure
@@ -2104,11 +2095,8 @@ publicly
 publish
 publisher
 pull
-punishment
 purchase
-pure
 purpose
-pursue
 push
 put
 qualify
@@ -2123,15 +2111,11 @@ quietly
 quit
 quite
 quote
-race
-racial
 radical
 radio
-rail
 rain
 raise
 range
-rank
 rapid
 rapidly
 rare
@@ -2140,7 +2124,6 @@ rate
 rather
 rating
 ratio
-raw
 reach
 react
 reaction
@@ -2269,26 +2252,21 @@ road
 rock
 role
 roll
-romantic
 roof
 room
 root
 rope
 rose
-rough
-roughly
 round
 route
 routine
 row
-rub
 rule
 run
 running
 rural
 rush
 Russian
-sacred
 sad
 safe
 safety
@@ -2370,8 +2348,6 @@ settlement
 seven
 several
 severe
-sex
-sexual
 shade
 shadow
 shake
@@ -2403,7 +2379,6 @@ should
 shoulder
 shout
 show
-shower
 shrug
 shut
 sick
@@ -2429,7 +2404,6 @@ singer
 single
 sink
 sir
-sister
 sit
 site
 situation
@@ -2547,7 +2521,6 @@ storage
 store
 storm
 story
-straight
 strange
 stranger
 strategic
@@ -2671,9 +2644,6 @@ term
 terms
 terrible
 territory
-terror
-terrorism
-terrorist
 test
 testify
 testimony
@@ -2711,7 +2681,6 @@ thousand
 threat
 threaten
 three
-throat
 through
 throughout
 throw
@@ -2753,7 +2722,6 @@ toward
 towards
 tower
 town
-toy
 trace
 track
 trade
@@ -2960,7 +2928,6 @@ withdraw
 within
 without
 witness
-woman
 wonder
 wonderful
 wood
