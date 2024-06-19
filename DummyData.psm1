@@ -16,8 +16,9 @@ function New-DummyData {
      
     # make sure we have a dictionary
     if (! $PSBoundParameters.ContainsKey('DICTIONARY')) {
-        $DICT_URL = "https://www.mit.edu/~ecprice/wordlist.10000"
-        $DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`n"
+        #$DICT_URL = "https://www.mit.edu/~ecprice/wordlist.10000"
+        #$DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`n"
+        $DICTIONARY = Get-Content "$PSCommandPath/dictionary.txt" -split "`n"
     }
 
     # make folders
