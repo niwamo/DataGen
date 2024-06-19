@@ -16,7 +16,7 @@ function New-DummyData {
      
     # make sure we have a dictionary
     if (! $PSBoundParameters.ContainsKey('DICTIONARY')) {
-        $DICT_URL = "https://github.com/dolph/dictionary/raw/master/popular.txt"
+        $DICT_URL = "https://www.mit.edu/~ecprice/wordlist.10000"
         $DICTIONARY = (Invoke-WebRequest -URI $DICT_URL -UseBasicParsing).Content -split "`n"
     }
 
