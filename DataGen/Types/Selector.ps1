@@ -14,21 +14,29 @@ class Selector {
     }
     # $Collection can be anything that implements .Count and .Get()
     [string] select ($Collection) {
-        $n = $Collection.Count - 1
+        $n = [Math]::Max(0, $Collection.Count - 1)
         return $Collection.Get(($this.generator.Next(0, $n)))
     }
     # $Collection can be anything that implements .Count and .Get()
     [string[]] select ($Collection, [int]$Count) {
-        $n = $Collection.Count - 1
+        $n = [Math]::Max(0, $Collection.Count - 1)
         $out = for ($i=0; $i -lt $Count; $i++) { 
             $Collection.Get(($this.generator.Next(0, $n)))
         }
         return $out
     }
     [int] num ([int]$Minimum, [int]$Maximum) {
+        if ($Minimum -gt $Maximum) {
+            Write-Error "Given min ($Minimum) was greater than the given max ($Maximum)"
+            return -1
+        }
         return $this.generator.Next($Minimum, $Maximum)
     }
     [int] num ([int]$Maximum) {
+        if ($Maximum -lt 0) {
+            Write-Error "Given maximum ($Maximum) was less than zero"
+            return -1
+        }
         return $this.generator.Next(0, $Maximum)
     }
 }
