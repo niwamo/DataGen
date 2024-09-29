@@ -17,13 +17,13 @@ class SText {
         }
     }
     [string[]] GetText([Random]$generator) {
-        $out = foreach ($i in 1..$generator.next(1,100)) {
-            $i = $generator.next(0, [Math]::Max(0, $this.data.Count - 1))
-            $j = $generator.next(0, [Math]::Max(0, $this.data[$i][1].Count - 1))
+        $out = foreach ($i in 1..$generator.next(1, 101)) {
+            $i = $generator.next(0, [Math]::Max(0, $this.data.Count))
+            $j = $generator.next(0, [Math]::Max(0, $this.data[$i].Item2.Count))
             [string]::format(
                 "{0}: {1}; ",
-                $this.data[$i][0],
-                $this.data[$i][1][$j]
+                $this.data[$i].Item1,
+                $this.data[$i].Item2[$j]
             )
         }
         return $out

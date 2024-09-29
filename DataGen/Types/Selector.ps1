@@ -1,9 +1,3 @@
-class Getter {
-    [Object] Get ([int]$idx) {
-        return [Object]
-    }
-}
-
 class Selector {
     [System.Random]$generator
     Selector () {
@@ -14,12 +8,12 @@ class Selector {
     }
     # $Collection can be anything that implements .Count and .Get()
     [string] select ($Collection) {
-        $n = [Math]::Max(0, $Collection.Count - 1)
+        $n = [Math]::Max(0, $Collection.Count)
         return $Collection.Get(($this.generator.Next(0, $n)))
     }
     # $Collection can be anything that implements .Count and .Get()
     [string[]] select ($Collection, [int]$Count) {
-        $n = [Math]::Max(0, $Collection.Count - 1)
+        $n = [Math]::Max(0, $Collection.Count)
         $out = for ($i=0; $i -lt $Count; $i++) { 
             $Collection.Get(($this.generator.Next(0, $n)))
         }

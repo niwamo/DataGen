@@ -194,10 +194,10 @@ function New-PptxFiles {
         # Add slides to the presentation
         $words = $Generator.select($Dictionary, $WordCount)
         $sOut = $false
-        if ($generator.num(1, 100) -le $PercentSensitive) {
+        if ($generator.num(1, 101) -le $PercentSensitive) {
             # inject sensitive data
             $sOut = $true
-            $mid = $generator.num(1, $WordCount-1)
+            $mid = $generator.num(1, $WordCount)
             $words = `
                 $words[0..$mid] + `
                 $Sensitive.GetText($generator.generator) + `
@@ -272,10 +272,10 @@ function New-DocxFiles {
         # get content
         $words = $Generator.select($Dictionary, $WordCount)
         $sOut = $false
-        if ($generator.num(1, 100) -le $PercentSensitive) {
+        if ($generator.num(1, 101) -le $PercentSensitive) {
             # inject sensitive data
             $sOut = $true
-            $mid = $generator.num(1, $WordCount-1)
+            $mid = $generator.num(1, $WordCount)
             $words = `
                 $words[0..$mid] + `
                 $Sensitive.GetText($generator.generator) + `
@@ -341,10 +341,10 @@ function New-XlsxFiles {
         $words = $Generator.select($Dictionary, $WordCount)
         $start = 0; $end = $WordCount-1
         $sOut = $false
-        if ($generator.num(1, 100) -le $PercentSensitive) {
+        if ($generator.num(1, 101) -le $PercentSensitive) {
             # inject sensitive data
             $sOut = $true
-            $mid = $generator.num(1, $WordCount-1)
+            $mid = $generator.num(1, $WordCount)
             $words = `
                 $words[0..$mid] + `
                 $Sensitive.GetText($generator.generator) + `
@@ -422,10 +422,10 @@ function New-TxtFiles {
     foreach ($outPath in $outputPaths) {
         $words = $generator.select($Dictionary, $WordCount)
         $sOut = $false
-        if ($generator.num(1, 100) -le $PercentSensitive) {
+        if ($generator.num(1, 101) -le $PercentSensitive) {
             # inject sensitive data
             $sOut = $true
-            $mid = $generator.num(1, $WordCount - 2)
+            $mid = $generator.num(1, $WordCount-1)
             $words = `
                 $words[0..$mid] + `
                 $Sensitive.GetText($generator.generator) + `
